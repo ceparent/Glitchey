@@ -129,7 +129,7 @@ namespace Glitchey.Rendering
 
         public static void DrawTexture(int texture, Rectangle rectangle, double angle, Vector2 originOffset)
         {
-            
+            GL.ActiveTexture(TextureUnit.Texture0);
             GL.Color4(Color.White);
             GL.BindTexture(TextureTarget.Texture2D, texture);
 

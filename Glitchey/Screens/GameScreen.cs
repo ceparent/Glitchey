@@ -46,7 +46,7 @@ namespace Glitchey.Screens
         Camera _camera;
         private void LoadLevel()
         {
-            World world = new World("levels/q3dm1.bsp");
+            World world = new World("levels/q3dm8.bsp");
             _entityManager.AddEntity(world);
 
             Camera cam = _camera = new Camera();
@@ -81,14 +81,12 @@ namespace Glitchey.Screens
             GL.DepthMask(false);
             GL.UseProgram(0);
             GL.CullFace(CullFaceMode.Back);
-            GL.Disable(EnableCap.Lighting);
 
             int offset = 40;
             int cpt = 0;
             DrawHelper.DrawString("Position : " + _camera.Position.PositionVec.ToString() , Content.LoadFont(font), Color.Yellow, new Vector2(0, cpt++ * offset), false);
             DrawHelper.DrawString("Rotation : " + _camera.Rotation.RotationVector.ToString(), Content.LoadFont(font), Color.Yellow, new Vector2(0, cpt++ * offset), false);
 
-            GL.Enable(EnableCap.Lighting);
             GL.CullFace(CullFaceMode.Front);
             GL.DepthMask(true);
             

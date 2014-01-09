@@ -22,7 +22,7 @@ namespace Glitchey.Systems
 
             float aspectRatio = GameOptions.viewport_width / (float)GameOptions.viewport_height;
 
-            float fov = MathHelper.PiOver4;
+            float fov = MathHelper.PiOver3;
 
             float nearClip = 1.0f;
 

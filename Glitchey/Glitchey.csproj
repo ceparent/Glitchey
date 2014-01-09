@@ -79,6 +79,7 @@
     <Compile Include="Menu\MainMenu.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="Rendering\BezierInfos.cs" />
     <Compile Include="Rendering\BspRenderer.cs" />
     <Compile Include="Rendering\Shaders\BspShader.cs" />
     <Compile Include="Rendering\Vertex.cs" />

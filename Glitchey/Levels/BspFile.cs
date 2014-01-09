@@ -195,6 +195,13 @@ namespace Glitchey.Levels
             {
                 temp.Position[i] *= (float)pMultiplier;
                 temp.Normal[i] *= (float)pMultiplier;
+
+                if (i < 2)
+                {
+                    temp.TexCoord[0, i] *= (float)pMultiplier;
+                    temp.TexCoord[1, i] *= (float)pMultiplier;
+                }
+                    
             }
 
             return temp;
@@ -207,6 +214,12 @@ namespace Glitchey.Levels
             {
                 temp.Position[i] += other.Position[i];
                 temp.Normal[i] += other.Normal[i];
+
+                if (i < 2)
+                {
+                    temp.TexCoord[0, i] += other.TexCoord[0, i];
+                    temp.TexCoord[1, i] += other.TexCoord[1, i];
+                }
             }
             return temp;
         }

@@ -118,11 +118,18 @@ namespace Glitchey.Rendering
 
         private static uint[] Indices;
         private static List<face> _goodVisibleFaces;
+        private static int _lastCluster = int.MinValue;
         private static void DetermineVisibleFaces()
         {
 
             int leafIndex = findLeaf();
             int clusterIndex = BspFile.Leaves[leafIndex].Cluster;
+
+            // Optimisation only update if we changed cluster
+            if (_lastCluster == clusterIndex)
+                return;
+            else
+                _lastCluster = clusterIndex;
 
             //Visible leaves
             List<leaf> visibleLeaves = new List<leaf>();
@@ -161,7 +168,6 @@ namespace Glitchey.Rendering
 
 
             // Sort by texture
-
             visibleFaces = visibleFaces.OrderBy(o => o.Texture).ToList();
 
             List<uint> indiceList = new List<uint>();
@@ -198,20 +204,18 @@ namespace Glitchey.Rendering
         private static int BeziersVertices;
         private static int BeziersIndex;
         private static uint[] BezierIndices;
-        private static int[] BezierstextureLengths;
+        private static List<BezierInfos> _beziers;
         private static void CreateBeziersWithTesselation()
         {
-            List<int> bezierTextureIds = new List<int>();
-            List<vertex[]> controlList = new List<vertex[]>();
             List<int> textureIds = new List<int>();
+            _beziers = new List<BezierInfos>();
+
             foreach (face f in _bspFile.Faces)
             {
                 if (f.Type == 2)
                 {
                     int width = (f.Size[0] - 1) / 2;
                     int height = (f.Size[1] - 1) / 2;
-
-                    bezierTextureIds.Add(f.Texture);
 
                     vertex[,] patch = new vertex[f.Size[0], f.Size[1]];
 
@@ -225,7 +229,7 @@ namespace Glitchey.Rendering
                         }
                     }
 
-
+                    BezierInfos info = new BezierInfos(f);
 
                     for (int x = 0; x < width; x++)
                     {
@@ -243,46 +247,34 @@ namespace Glitchey.Rendering
 
                                 }
                             }
-                            controlList.Add(controls);
+                            info.Controls.Add(controls);
                             textureIds.Add(f.Texture);
                         }
                     }
 
-
+                    _beziers.Add(info);
                 }
 
             }
 
 
-            List<vertex> bspVertices;
-
-            bspVertices = new List<vertex>();
-
-
-
-            List<int>[] Texturearrays = new List<int>[_bspFile.Textures.Count()];
-
-            for (int i = 0; i < _bspFile.Textures.Count(); i++)
-            {
-                Texturearrays[i] = new List<int>();
-            }
-
+            List<vertex> bspVertices = new List<vertex>();
+            // Reset TessalationOffset from last time for TesselateOnePatch()
             TesselationOffset = 0;
-            for (int i = 0; i < controlList.Count; i++)
+            List<uint> realList = new List<uint>();
+            int indexBezier = 0;
+            foreach (BezierInfos Bezier in _beziers)
             {
-                Texturearrays[textureIds[i]].AddRange(TesselateOnePatch(bspVertices, controlList[i]));
+                Bezier.Start = indexBezier;
+                for (int i = 0; i < Bezier.Controls.Count; i++)
+                {
+                    List<uint> indices = TesselateOnePatch(ref bspVertices, Bezier.Controls[i]);
+                    realList.AddRange(indices);
+                    indexBezier += indices.Count;
+                }
+                Bezier.End = indexBezier;
             }
 
-
-            List<int> realList = new List<int>();
-            BezierstextureLengths = new int[_bspFile.Textures.Count()];
-            int cpt3 = 0;
-            for (int i = 0; i < Texturearrays.Length; i++)
-            {
-                realList.AddRange(Texturearrays[i]);
-                cpt3 += Texturearrays[i].Count;
-                BezierstextureLengths[i] = cpt3;
-            }
 
 
             List<Vertex> verticesList = new List<Vertex>();
@@ -295,28 +287,27 @@ namespace Glitchey.Rendering
                 verticesList.Add(new Vertex(V3FromFloatArray(vert.Position), normal, new Vector2(vert.TexCoord[0, 0], vert.TexCoord[0, 1]), new Vector2(vert.TexCoord[1, 0], vert.TexCoord[1, 1])));
                 cpt2++;
             }
-            if (bspVertices.Count > 0)
+
+
+            Vertex[] vertices = verticesList.ToArray();
+            GL.GenBuffers(1, out BeziersVertices);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, BeziersVertices);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(vertices.Length * Vertex.Stride), vertices, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+
+            BezierIndices = new uint[realList.Count];
+            int cpt4 = 0;
+            foreach (uint i in realList)
             {
-
-                Vertex[] vertices = verticesList.ToArray();
-                GL.GenBuffers(1, out BeziersVertices);
-                GL.BindBuffer(BufferTarget.ArrayBuffer, BeziersVertices);
-                GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(vertices.Length * Vertex.Stride), vertices, BufferUsageHint.StaticDraw);
-                GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
-
-
-                BezierIndices = new uint[realList.Count];
-                int cpt = 0;
-                foreach (int i in realList)
-                {
-                    BezierIndices[cpt] = (uint)i;
-                    cpt++;
-                }
-                GL.GenBuffers(1, out BeziersIndex);
-                GL.BindBuffer(BufferTarget.ElementArrayBuffer, BeziersIndex);
-                GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(BezierIndices.Length * sizeof(uint)), BezierIndices, BufferUsageHint.StaticDraw);
-                GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+                BezierIndices[cpt4] = i;
+                cpt4++;
             }
+
+            GL.GenBuffers(1, out BeziersIndex);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, BeziersIndex);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(BezierIndices.Length * sizeof(uint)), BezierIndices, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+            
         }
 
         private static int _tesselation;
@@ -335,7 +326,7 @@ namespace Glitchey.Rendering
             }
         }
         private static int TesselationOffset = 0;
-        private static List<int> TesselateOnePatch(List<vertex> pVerticesList, vertex[] pControls)
+        private static List<uint> TesselateOnePatch(ref List<vertex> pVerticesList, vertex[] pControls)
         {
             int Length = Tesselation + 1;
 
@@ -375,12 +366,17 @@ namespace Glitchey.Rendering
 
                     //2nd pass
                     vertices[y + x * Length] = p0 * b * b + p1 * 2 * b * a + p2 * a * a;
-                    vertices[y + x * Length].TexCoord = new float[,] { { p0.TexCoord[0, 0] + (float)a, p0.TexCoord[0, 0] + (float)c }, { p0.TexCoord[1, 1] + (float)a, p0.TexCoord[1, 1] + (float)c } };
+                    /*
+                    vertices[y + x * Length].TexCoord = new float[,] 
+                    { 
+                        { p0.TexCoord[0, 0] + (float)a, p0.TexCoord[0, 0] + (float)c },
+                        { p0.TexCoord[1, 1] + (float)a, p0.TexCoord[1, 1] + (float)c }
+                    };*/
 
                 }
             }
 
-            List<int> indices = new List<int>();
+            List<uint> indices = new List<uint>();
             int offset = Length * Length;
 
             for (int row = 0; row < Length - 1; row++)
@@ -388,19 +384,19 @@ namespace Glitchey.Rendering
                 for (int col = 0; col < Length - 1; col++)
                 {
                     // 0, 0
-                    indices.Add(col + (Length * row) + (TesselationOffset * offset));
+                    indices.Add((uint)(col + (Length * row) + (TesselationOffset * offset)));
                     // 1, 1
-                    indices.Add((col + 1) + (Length * (row + 1)) + (TesselationOffset * offset));
+                    indices.Add((uint)((col + 1) + (Length * (row + 1)) + (TesselationOffset * offset)));
                     // 1, 0
-                    indices.Add((col + 1) + (Length * row) + (TesselationOffset * offset));
+                    indices.Add((uint)((col + 1) + (Length * row) + (TesselationOffset * offset)));
 
 
                     // 0, 0
-                    indices.Add(col + (Length * row) + (TesselationOffset * offset));
+                    indices.Add((uint)(col + (Length * row) + (TesselationOffset * offset)));
                     // 0, 1
-                    indices.Add(col + (Length * (row + 1)) + (TesselationOffset * offset));
+                    indices.Add((uint)(col + (Length * (row + 1)) + (TesselationOffset * offset)));
                     // 1, 1
-                    indices.Add((col + 1) + (Length * (row + 1)) + (TesselationOffset * offset));
+                    indices.Add((uint)((col + 1) + (Length * (row + 1)) + (TesselationOffset * offset)));
 
 
                 }
@@ -417,7 +413,7 @@ namespace Glitchey.Rendering
         public static void Draw()
         {
             GL.PushMatrix();
-
+            
             GL.UseProgram(_shader.shaderProgramHandle);
             _shader.SetProjectionMatrix(CameraSystem.projectionMatrix);
             _shader.SetModelviewMatrix(CameraSystem.viewMatrix * Matrix4.Identity);
@@ -440,7 +436,7 @@ namespace Glitchey.Rendering
             GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, Vertex.Stride, 8 * sizeof(float));
             
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBuffer);
-
+            
             int cptVertex = 0;
             int lastTexture = -1;
             int lastLm = -1;
@@ -488,32 +484,61 @@ namespace Glitchey.Rendering
             GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, Vertex.Stride, 8 * sizeof(float));
 
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, BeziersIndex);
-            /*
-            lastOFfset = 0;
-            for (int i = 0; i < BezierstextureLengths.Count(); i++)
+            cptVertex = 0;
+            foreach (BezierInfos bezier in _beziers)
             {
-                GL.ActiveTexture(TextureUnit.Texture0);
-                string textureName = BspFile.Textures[i].Name + ".jpg";
-                GL.BindTexture(TextureTarget.Texture2D, Content.LoadTexture(textureName));
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)(TextureWrapMode.Repeat));
-                GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)(TextureWrapMode.Repeat));
+                face f = bezier.Face;
 
-                GL.DrawRangeElements(PrimitiveType.Triangles, lastOFfset, BezierstextureLengths[i], BezierstextureLengths[i] - lastOFfset, DrawElementsType.UnsignedInt, new IntPtr(lastOFfset * 4));
-                lastOFfset = BezierstextureLengths[i];
+                string textureName = BspFile.Textures[f.Texture].Name + ".jpg";
+                int texture = Content.LoadTexture(textureName);
+                if (texture != lastTexture)
+                {
+                    GL.ActiveTexture(TextureUnit.Texture0);
+                    GL.BindTexture(TextureTarget.Texture2D, texture);
+                    _shader.BindTexture(TextureUnit.Texture0, "text");
+
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)(TextureWrapMode.Repeat));
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)(TextureWrapMode.Repeat));
+                    lastTexture = texture;
+                }
+
+                if (f.Lm_index > 0 && f.Lm_index != lastLm)
+                {
+                    GL.ActiveTexture(TextureUnit.Texture1);
+                    GL.BindTexture(TextureTarget.Texture2D, _lightmaps[f.Lm_index]);
+                    _shader.BindTexture(TextureUnit.Texture1, "lm");
+
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)(TextureWrapMode.Repeat));
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)(TextureWrapMode.Repeat));
+                }
+
+                GL.DrawRangeElements(PrimitiveType.Triangles, bezier.Start, bezier.End, bezier.End - bezier.Start, DrawElementsType.UnsignedInt, new IntPtr(cptVertex * sizeof(uint)));
+
+                cptVertex += bezier.End - bezier.Start;
             }
-
-             */
+            
+            GL.ActiveTexture(TextureUnit.Texture0);
+            GL.BindTexture(TextureTarget.Texture2D, 0);
+            GL.ActiveTexture(TextureUnit.Texture1);
             GL.BindTexture(TextureTarget.Texture2D, 0);
 
+            GL.DisableVertexAttribArray(0);
+            GL.DisableVertexAttribArray(1);
+            GL.DisableVertexAttribArray(2);
+            GL.DisableVertexAttribArray(3);
+
+
+            GL.DisableClientState(ArrayCap.VertexArray);
 
             // Clear buffers
             GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
-
-            GL.DisableClientState(ArrayCap.VertexArray);
-
+            
+            
             GL.PopMatrix();
         }
 

@@ -50,7 +50,7 @@ namespace Glitchey.Rendering.Shaders
             out vec4 out_frag_color;
             void main(void)
             {
-                out_frag_color = texture(lm, lmCoord) *  texture(text, texCoordV)  * 4;   
+                out_frag_color = texture(lm, lmCoord) *  texture(text, texCoordV) * 4;   
             }";
 
         private void BindAttribLocations()
