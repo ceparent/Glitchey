@@ -13,6 +13,12 @@ namespace Glitchey.Systems
     class RenderingSystem : BaseSystem
     {
 
+        public override void Update()
+        {
+            if(BspRenderer.BspFile != null)
+                BspRenderer.LoadIndexBuffer();
+        }
+
         public override void Render()
         {
             foreach (IRender r in _entities)

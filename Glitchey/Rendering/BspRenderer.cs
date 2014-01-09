@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using OpenTK.Graphics;
+using System.Drawing;
 
 using Glitchey.Levels;
 using Glitchey.Systems;
@@ -38,6 +39,28 @@ namespace Glitchey.Rendering
             _tesselation = GameOptions.patch_tesselation;
             CreateBeziersWithTesselation();
             LoadVBuffer();
+            LoadIndexBuffer();
+            GenerateLightmapTextures();
+        }
+
+        private static int[] _lightmaps;
+        private static void GenerateLightmapTextures()
+        {
+            _lightmaps = new int[_bspFile.Lightmaps.Count()];
+            int cpt = 0;
+            foreach (lightmap lm in _bspFile.Lightmaps)
+            {
+                int lmId = GL.GenTexture();
+
+                GL.BindTexture(TextureTarget.Texture2D, lmId);
+
+                GL.TexImage2D<byte>(TextureTarget.Texture2D, 0, PixelInternalFormat.Rgb, lm.Map.GetLength(0), lm.Map.GetLength(1), 0, PixelFormat.Rgb, PixelType.UnsignedByte, lm.Map);
+
+                _lightmaps[cpt] = lmId;
+
+                cpt++;
+            }
+
 
         }
 
@@ -51,7 +74,7 @@ namespace Glitchey.Rendering
             {
                 Vector3 position = V3FromFloatArray(v.Position);
                 Vector2 texcoord = new Vector2(v.TexCoord[0, 0], v.TexCoord[0, 1]);
-                Vector2 lightmapcoord = new Vector2(v.TexCoord[0, 0],  v.TexCoord[0, 1]);
+                Vector2 lightmapcoord = new Vector2(v.TexCoord[1, 0], v.TexCoord[1, 1]);
                 Vector3 normal = V3FromFloatArray(v.Normal);
 
                 vertices[cpt] =  new Vertex(position, normal, texcoord, lightmapcoord);
@@ -65,7 +88,7 @@ namespace Glitchey.Rendering
         }
 
         private static int IBuffer;
-        private static void LoadIndexBuffer()
+        public static void LoadIndexBuffer()
         {
             DetermineVisibleFaces();
         }
@@ -93,8 +116,8 @@ namespace Glitchey.Rendering
 
         }
 
-        private static int[] textureLengths;
         private static uint[] Indices;
+        private static List<face> _goodVisibleFaces;
         private static void DetermineVisibleFaces()
         {
 
@@ -112,7 +135,6 @@ namespace Glitchey.Rendering
             //visible faces
             HashSet<int> usedIndices = new HashSet<int>();
             List<leafface> leafFaces = new List<leafface>();
-            List<face> visibleFaces = new List<face>();
             foreach (leaf l in visibleLeaves)
             {
                 for (int i = l.LeafFace; i < l.LeafFace + l.N_LeafFaces; i++)
@@ -130,7 +152,7 @@ namespace Glitchey.Rendering
             }
 
             //face
-
+            List<face> visibleFaces = new List<face>();
             foreach (leafface l in leafFaces)
             {
                 face f = BspFile.Faces[l.Face];
@@ -138,24 +160,24 @@ namespace Glitchey.Rendering
             }
 
 
+            // Sort by texture
 
-            List<uint>[] Texturearrays = new List<uint>[BspFile.Textures.Count()];
-            for (int i = 0; i < BspFile.Textures.Count(); i++)
-            {
-                Texturearrays[i] = new List<uint>();
-            }
+            visibleFaces = visibleFaces.OrderBy(o => o.Texture).ToList();
 
-            //arrays
+            List<uint> indiceList = new List<uint>();
+            _goodVisibleFaces = new List<face>();
             foreach (face f in visibleFaces)
             {
                 if (f.Type == 1 || f.Type == 3)
                 {
+                    _goodVisibleFaces.Add(f);
                     //Meshes and faces
                     for (int i = f.Meshvert; i < f.Meshvert + f.N_Meshverts; i++)
                     {
                         //index
                         uint index = Convert.ToUInt32(f.Vertex + BspFile.MeshVerts[i].Offset);
-                        Texturearrays[f.Texture].Add(index);
+                        indiceList.Add(index);
+                        
                     }
 
                 }
@@ -163,19 +185,9 @@ namespace Glitchey.Rendering
 
             }
 
-            List<uint> realList = new List<uint>();
-            textureLengths = new int[BspFile.Textures.Count()];
-            int cpt = 0;
-            for (int i = 0; i < Texturearrays.Length; i++)
-            {
-                realList.AddRange(Texturearrays[i]);
-                cpt += Texturearrays[i].Count;
-                textureLengths[i] = cpt;
-            }
 
 
-            Indices = realList.ToArray();
-
+            Indices = indiceList.ToArray();
             GL.GenBuffers(1, out IBuffer);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBuffer);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(Indices.Length * sizeof(int)), Indices, BufferUsageHint.StaticDraw);
@@ -249,6 +261,7 @@ namespace Glitchey.Rendering
 
 
             List<int>[] Texturearrays = new List<int>[_bspFile.Textures.Count()];
+
             for (int i = 0; i < _bspFile.Textures.Count(); i++)
             {
                 Texturearrays[i] = new List<int>();
@@ -362,7 +375,7 @@ namespace Glitchey.Rendering
 
                     //2nd pass
                     vertices[y + x * Length] = p0 * b * b + p1 * 2 * b * a + p2 * a * a;
-                    vertices[y + x * Length].TexCoord = new float[,] { { p0.TexCoord[0, 0] + (float)a, p0.TexCoord[0, 0] + (float)c }, { p0.TexCoord[0, 1] + (float)a, p0.TexCoord[0, 1] + (float)c } };
+                    vertices[y + x * Length].TexCoord = new float[,] { { p0.TexCoord[0, 0] + (float)a, p0.TexCoord[0, 0] + (float)c }, { p0.TexCoord[1, 1] + (float)a, p0.TexCoord[1, 1] + (float)c } };
 
                 }
             }
@@ -409,63 +422,73 @@ namespace Glitchey.Rendering
             _shader.SetProjectionMatrix(CameraSystem.projectionMatrix);
             _shader.SetModelviewMatrix(CameraSystem.viewMatrix * Matrix4.Identity);
 
-            LoadIndexBuffer();
-
             GL.Color3(1.0f, 1.0f, 1.0f);
             GL.EnableClientState(ArrayCap.VertexArray);
             // Base
 
+            GL.EnableVertexAttribArray(0);
+            GL.EnableVertexAttribArray(1);
+            GL.EnableVertexAttribArray(2);
+            GL.EnableVertexAttribArray(3);
+
+
             GL.BindBuffer(BufferTarget.ArrayBuffer, Vbuffer);
 
-            GL.EnableVertexAttribArray(0);
             GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, Vertex.Stride, 0);
-
-            GL.EnableVertexAttribArray(1);
             GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, Vertex.Stride, 3 * sizeof(float));
-
-            GL.EnableVertexAttribArray(2);
             GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, Vertex.Stride, 6 * sizeof(float));
-
-
+            GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, Vertex.Stride, 8 * sizeof(float));
+            
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBuffer);
-            int lastOFfset = 0;
-            for (int i = 0; i < textureLengths.Count(); i++)
-            {
-                if ((textureLengths[i] - lastOFfset) > 0)
-                {
 
+            int cptVertex = 0;
+            int lastTexture = -1;
+            int lastLm = -1;
+            foreach (face f in _goodVisibleFaces)
+            {
+                string textureName = BspFile.Textures[f.Texture].Name + ".jpg";
+                int texture = Content.LoadTexture(textureName);
+                if (texture != lastTexture)
+                {
                     GL.ActiveTexture(TextureUnit.Texture0);
-                    string textureName = BspFile.Textures[i].Name + ".jpg";                    
-                    GL.BindTexture(TextureTarget.Texture2D, Content.LoadTexture(textureName));
+                    GL.BindTexture(TextureTarget.Texture2D, texture);
+                    _shader.BindTexture(TextureUnit.Texture0, "text");
 
                     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
                     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
                     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)(TextureWrapMode.Repeat));
                     GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)(TextureWrapMode.Repeat));
-
-                    
-                    
-                    GL.DrawRangeElements(PrimitiveType.Triangles, lastOFfset, textureLengths[i], textureLengths[i] - lastOFfset, DrawElementsType.UnsignedInt, new IntPtr(lastOFfset * sizeof(uint)));
-
+                    lastTexture = texture;
                 }
-                lastOFfset = textureLengths[i];
+
+                if (f.Lm_index > 0 && f.Lm_index != lastLm)
+                {
+                    GL.ActiveTexture(TextureUnit.Texture1);
+                    GL.BindTexture(TextureTarget.Texture2D, _lightmaps[f.Lm_index]);
+                    _shader.BindTexture(TextureUnit.Texture1, "lm");
+
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMinFilter, (int)TextureMinFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureMagFilter, (int)TextureMagFilter.Linear);
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapS, (int)(TextureWrapMode.Repeat));
+                    GL.TexParameter(TextureTarget.Texture2D, TextureParameterName.TextureWrapT, (int)(TextureWrapMode.Repeat));
+                }
+
+                GL.DrawRangeElements(PrimitiveType.Triangles, cptVertex, cptVertex + f.N_Meshverts, f.N_Meshverts, DrawElementsType.UnsignedInt, new IntPtr(cptVertex * sizeof(uint)));
+
+                cptVertex += f.N_Meshverts;
             }
 
             
             // Bezier curves
             GL.BindBuffer(BufferTarget.ArrayBuffer, BeziersVertices);
 
-            GL.EnableVertexAttribArray(0);
             GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, Vertex.Stride, 0);
-
-            GL.EnableVertexAttribArray(1);
             GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, Vertex.Stride, 3 * sizeof(float));
-
-            GL.EnableVertexAttribArray(2);
             GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, Vertex.Stride, 6 * sizeof(float));
-
+            GL.VertexAttribPointer(3, 2, VertexAttribPointerType.Float, false, Vertex.Stride, 8 * sizeof(float));
 
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, BeziersIndex);
+            /*
             lastOFfset = 0;
             for (int i = 0; i < BezierstextureLengths.Count(); i++)
             {
@@ -481,7 +504,7 @@ namespace Glitchey.Rendering
                 lastOFfset = BezierstextureLengths[i];
             }
 
-             
+             */
             GL.BindTexture(TextureTarget.Texture2D, 0);
 
 

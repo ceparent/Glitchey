@@ -49,7 +49,6 @@ namespace Glitchey.Rendering
 
          public static void SetupViewportGame()
          {
-             
 
              GL.Enable(EnableCap.TextureCoordArray);
              GL.Enable(EnableCap.NormalArray);

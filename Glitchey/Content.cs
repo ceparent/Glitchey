@@ -19,7 +19,7 @@ namespace Glitchey
             _fonts = new Dictionary<Font, QFont>();
 
             _textures = new Dictionary<string, int>();
-            _textures.Add("default", LoadTexture("textures/surface.png"));
+            _textures.Add("default", LoadTexture("textures/missing_texture.jpg"));
         }
 
         private static Dictionary<string, int> _textures;
