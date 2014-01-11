@@ -17,7 +17,7 @@ namespace Glitchey
     class Main : GameWindow
     {
         public Main()
-            : base(GameOptions.window_width, GameOptions.window_height)
+            : base(GameOptions.GetVariable("w_width"), GameOptions.GetVariable("w_height"))
         {
             Title = "Glitchey";
         }
@@ -26,14 +26,20 @@ namespace Glitchey
         {
             base.OnLoad(e);
 
-            GameEvents.onExit +=GameConsole_onExit;
             GameEvents.onStateChanged += GameEvents_onStateChanged;
+            GameEvents.onExit += GameEvents_onExit;
 
             WindowBorder = WindowBorder.Fixed;
             WindowState = GameOptions.window_state;
 
             LoadScreen();
 
+            
+        }
+
+        void GameEvents_onExit(object sender, EventArgs e)
+        {
+            Exit();
         }
 
         void GameEvents_onStateChanged(object sender, StateChangedEventArgs e)
@@ -41,11 +47,11 @@ namespace Glitchey
             ChangeScreen(e.State);
         }
 
-        private void GameConsole_onExit(object sender, EventArgs e)
+        protected override void OnClosed(EventArgs e)
         {
-            this.Exit();
+            GameEvents.onExit -= GameEvents_onExit;
+            GameEvents.Exit();
         }
-
 
 
         private void LoadScreen()
@@ -73,6 +79,7 @@ namespace Glitchey
             _actualScreen.Render();
 
             SwapBuffers();
+            GameVariables.fps = ((float)(1 / e.Time) + GameVariables.fps) / 2;
         }
 
 

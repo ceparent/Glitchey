@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using Glitchey.Rendering;
 
 using System.Drawing;
+using System.Drawing.Text;
 using System.IO;
 using QuickFont;
 
@@ -14,14 +15,16 @@ namespace Glitchey
 {
     static class Content
     {
+        private static PrivateFontCollection _fontCollection;
         static Content()
         {
-            _fonts = new Dictionary<Font, QFont>();
+            _fontCollection = new PrivateFontCollection();
+            _fonts = new Dictionary<KeyValuePair<int, string>, QFont>();
 
             _textures = new Dictionary<string, int>();
             _textures.Add("default", LoadTexture("textures/missing_texture.jpg"));
         }
-
+        
         private static Dictionary<string, int> _textures;
 
         public static int LoadTexture(string path)
@@ -42,16 +45,30 @@ namespace Glitchey
             return id;
         }
 
-        private static Dictionary<Font, QFont> _fonts;
-        public static QFont LoadFont(Font pfont)
+        
+        private static Dictionary<KeyValuePair<int, string>, QFont> _fonts;
+        public static QFont LoadFont(string fontname, int size)
         {
-            if (_fonts.ContainsKey(pfont))
-                return _fonts[pfont];
+            KeyValuePair<int, string> pair = new KeyValuePair<int, string>(size, fontname);
+            if (_fonts.ContainsKey(pair))
+                return _fonts[pair];
 
-            QFont font = new QFont(pfont);
-            _fonts.Add(pfont, font);
+            string path = "Content/fonts/" + fontname + ".ttf";
+            Font newFont;
+            if (File.Exists(path))
+            {
+                _fontCollection.AddFontFile(path);
+                newFont = new Font(_fontCollection.Families[0], size);
+            }
+            else
+            {
+                newFont = new Font(fontname, size);
+            }
+            
+            QFont qfont = new QFont(newFont);
+            _fonts.Add(pair, qfont);
 
-            return font;
+            return qfont;
         }
 
         

@@ -6,20 +6,30 @@ using System.Threading.Tasks;
 
 using Glitchey.Components;
 
+using BulletSharp;
+using OpenTK;
+
 namespace Glitchey.Entities
 {
-    class Camera : Entity, IPosition, IRotation
+    class Player : Entity, IPosition, IRotation, IPhysic, IHeadOffset
     {
 
-        public Camera()
+        public Player(Vector3 position)
         {
-            _position = new Position();
+            _position = new Position(position);
             _rotation = new Rotation();
+
+            float height = 50;
+            float width = 25;
+            _headOffset = new Components.HeadOffset(new Vector3(0, height / 2, 0));
+            CollisionShape shape = new CapsuleShape(width, height);
+            float mass = 1f;
+            _physic = new Physic(shape,mass, CollisionFlags.CharacterObject);
         }
 
         public override string Name
         {
-            get { return "Camera"; }
+            get { return "Player"; }
         }
 
         private Position _position;
@@ -33,5 +43,18 @@ namespace Glitchey.Entities
         {
             get { return _rotation; }
         }
+
+        private Physic _physic;
+        public Physic Physic
+        {
+            get { return _physic; }
+        }
+
+        private HeadOffset _headOffset;
+        public HeadOffset HeadOffset
+        {
+            get { return _headOffset; }
+        }
+
     }
 }

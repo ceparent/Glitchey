@@ -10,23 +10,45 @@ namespace Glitchey
 {
     static class GameOptions
     {
-        //viewport
-        public static int viewport_width = 1920;
-        public static int viewport_height = 1080;
+        private static Dictionary<string, int> _variables;
+        static GameOptions()
+        {
+            _variables = new Dictionary<string, int>();
+            LoadVariables();
+        }
 
-        //window
-        /* 1366 x 768 window */
-        public static int window_width = 1366;
-        public static int window_height = 768;
-        public static WindowState window_state = WindowState.Normal;
+        private static void LoadVariables()
+        {
+            //viewport
+            _variables["vp_width"] = 1920;
+            _variables["vp_height"] = 1080;
 
-        //public static int window_width = 1920;
-        //public static int window_height = 1080;
-        //public static WindowState window_state = WindowState.Fullscreen;
+            //window
+            /* 1366 x 768 window */
+            //_variables["w_width"] = 1366;
+            //_variables["w_height"] = 768;
 
+            _variables["w_width"] = 1920;
+            _variables["w_height"] = 1080;
 
-        //rendering
-        public static int patch_tesselation = 7;
+            //rendering
+            _variables["r_tesselation"] = 5;
+        }
+        public static WindowState window_state = WindowState.Fullscreen;
+        //public static WindowState window_state = WindowState.Normal;
+
+        public static int GetVariable(string variable)
+        {
+            return _variables[variable];
+        }
+
+        public static void SetVariable(string variable, int value)
+        {
+            _variables[variable] = value;
+        }
+
+        
+
 
 
 

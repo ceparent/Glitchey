@@ -24,7 +24,8 @@ namespace Glitchey.Menu
         List<Control> _controls;
         public override void Load()
         {
-            _font = Content.LoadFont(new Font("bitween 10", 32));
+            
+           _font = Content.LoadFont("bitween10", 32);
             LoadControls();
         }
 
@@ -57,9 +58,11 @@ namespace Glitchey.Menu
         
         public override void Render()
         {
-            int texture = Content.LoadTexture("textures/menu/background.png");
-            DrawHelper.DrawTexture(texture, new Rectangle(0, 0, GameOptions.viewport_width, GameOptions.viewport_height), 0, OpenTK.Vector2.Zero);
+            GameRenderer.SetupViewportMenu();
 
+            int texture = Content.LoadTexture("textures/menu/background.png");
+            DrawHelper.DrawTexture(texture, new Rectangle(0, 0, GameOptions.GetVariable("vp_width"), GameOptions.GetVariable("vp_height")), 0, OpenTK.Vector2.Zero);
+            
             foreach (Control c in _controls)
             {
                 c.Render();

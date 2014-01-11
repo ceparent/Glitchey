@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 using Glitchey.Entities;
 using Glitchey.Rendering;
+using Glitchey.Components;
 
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
@@ -18,9 +19,9 @@ namespace Glitchey.Systems
         public static Matrix4 projectionMatrix;
         public CameraSystem()
         {
-            GL.Viewport(0, 0, GameOptions.window_width, GameOptions.window_height);
+            GL.Viewport(0, 0, GameOptions.GetVariable("w_width"), GameOptions.GetVariable("w_height"));
 
-            float aspectRatio = GameOptions.viewport_width / (float)GameOptions.viewport_height;
+            float aspectRatio = GameOptions.GetVariable("vp_width") / (float)GameOptions.GetVariable("vp_height");
 
             float fov = MathHelper.PiOver3;
 
@@ -32,18 +33,35 @@ namespace Glitchey.Systems
         }
 
         public static Matrix4 viewMatrix;
-
         public override void Update()
         {
-            viewMatrix = Matrix4.LookAt(_camera.Position.PositionVec, _camera.Position.PositionVec + RotatedTarget, UpVector);
+            viewMatrix = Matrix4.LookAt(Camera.Position.PositionVec + Camera.HeadOffset.Offset, Camera.Position.PositionVec + Camera.HeadOffset.Offset + RotatedTarget, UpVector);
         }
 
         public static void Move(Vector3 pMovement, float pSpeed)
         {
-            Matrix4 rotMatrix = Matrix4.CreateRotationX(_camera.Rotation.Pitch) * Matrix4.CreateRotationY(_camera.Rotation.Yaw);
+            Matrix4 rotMatrix = Matrix4.CreateRotationX(Camera.Rotation.Pitch) * Matrix4.CreateRotationY(Camera.Rotation.Yaw);
             Vector3 rotatedVector = Vector3.Transform(pMovement, rotMatrix);
-            _camera.Position.PositionVec += pSpeed * rotatedVector;
 
+            Camera.Physic.RigidBody.Activate();
+            Camera.Position.PositionVec += pSpeed * rotatedVector;
+            Camera.Physic.RigidBody.Translate(pSpeed * rotatedVector);
+        }
+
+        public static void MoveWithoutY(Vector3 pMovement, float pSpeed)
+        {
+            Matrix4 rotMatrix = Matrix4.CreateRotationX(Camera.Rotation.Pitch) * Matrix4.CreateRotationY(Camera.Rotation.Yaw);
+            Vector3 rotatedVector = Vector3.Transform(pMovement, rotMatrix);
+
+            if (rotatedVector == Vector3.Zero)
+                return;
+
+            rotatedVector.Y = 0;
+            rotatedVector.Normalize();
+
+            Camera.Physic.RigidBody.Activate();
+            Camera.Position.PositionVec += pSpeed * rotatedVector;
+            Camera.Physic.RigidBody.Translate(pSpeed * rotatedVector);
         }
 
         public Vector3 Target
@@ -60,20 +78,28 @@ namespace Glitchey.Systems
         {
             get
             {
-                Matrix4 rotation = Matrix4.CreateRotationX(_camera.Rotation.Pitch) * Matrix4.CreateRotationY(_camera.Rotation.Yaw);
+                Matrix4 rotation = Matrix4.CreateRotationX(Camera.Rotation.Pitch) * Matrix4.CreateRotationY(Camera.Rotation.Yaw);
                 return Vector3.Transform(Target, rotation);
             }
 
         }
 
-        public static Camera _camera;
+        public static Player Camera
+        {
+            get { return _cameras[ActiveCamera]; }
+        }
+
+        public static List<Player> _cameras;
+        public static int ActiveCamera = 0;
         public override void UpdateEntityList()
         {
+            _cameras = new List<Entities.Player>();
             _entities = new List<Entity>();
             foreach (Entity e in _entityManager.Entities)
             {
-                Camera cam = e as Camera;
-                _camera = cam;
+                Player cam = e as Player;
+                if(cam != null)
+                    _cameras.Add(cam);
             }
         }
     }

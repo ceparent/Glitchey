@@ -6,8 +6,8 @@ using System.Threading.Tasks;
 using OpenTK;
 using OpenTK.Graphics.OpenGL;
 using System.Drawing;
-using QuickFont;
 
+using QuickFont;
 namespace Glitchey.Rendering
 {
     static class DrawHelper
@@ -129,6 +129,7 @@ namespace Glitchey.Rendering
 
         public static void DrawTexture(int texture, Rectangle rectangle, double angle, Vector2 originOffset)
         {
+            GL.MatrixMode(MatrixMode.Projection);
             GL.ActiveTexture(TextureUnit.Texture0);
             GL.Color4(Color.White);
             GL.BindTexture(TextureTarget.Texture2D, texture);

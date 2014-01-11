@@ -10,6 +10,7 @@ using OpenTK.Graphics.OpenGL;
 
 using Glitchey.Entities;
 using Glitchey.Levels;
+using Glitchey.Systems;
 
 namespace Glitchey.Rendering
 {
@@ -27,7 +28,7 @@ namespace Glitchey.Rendering
              GL.Disable(EnableCap.CullFace);
              GL.Disable(EnableCap.DepthTest);
 
-             GL.Viewport(0, 0, GameOptions.window_width, GameOptions.window_height);
+             GL.Viewport(0, 0, GameOptions.GetVariable("w_width"), GameOptions.GetVariable("w_height"));
 
              float nearClip = 0f;
              float farClip = 1000.0f;
@@ -35,7 +36,7 @@ namespace Glitchey.Rendering
              GL.MatrixMode(MatrixMode.Projection);
              GL.LoadIdentity();
 
-             GL.Ortho(0, GameOptions.viewport_width , GameOptions.viewport_height, 0, nearClip, farClip);
+             GL.Ortho(0, GameOptions.GetVariable("vp_width") , GameOptions.GetVariable("vp_height"), 0, nearClip, farClip);
          }
 
          public static void SetupViewportGame()
@@ -52,7 +53,7 @@ namespace Glitchey.Rendering
 
 
 
-         public static void RenderWorld(World world)
+         public static void RenderWorld(GameWorld world)
          {
              if (world == null)
                  throw new InvalidOperationException("world is null");
@@ -62,6 +63,21 @@ namespace Glitchey.Rendering
 
              BspRenderer.Draw();
 
+         }
+
+         public static void RenderDebugLines(Vector3[] vertices)
+         {
+             GL.LoadIdentity();
+             GL.Color4(Color.Red);
+             Matrix4 trans = CameraSystem.viewMatrix * CameraSystem.projectionMatrix;
+             GL.MatrixMode(MatrixMode.Projection);
+             GL.LoadMatrix(ref trans);
+
+             GL.EnableClientState(ArrayCap.VertexArray);
+             GL.VertexPointer(3, VertexPointerType.Float, sizeof(float) * 3, vertices);
+             GL.DrawArrays(PrimitiveType.Lines, 0, vertices.Length);
+
+             GL.DisableClientState(ArrayCap.VertexArray);
          }
      }
 }

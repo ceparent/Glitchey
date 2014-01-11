@@ -12,21 +12,26 @@ namespace Glitchey.Systems
 {
     class RenderingSystem : BaseSystem
     {
+        public RenderingSystem()
+        {
+        }
 
         public override void Update()
         {
-            if(BspRenderer.BspFile != null)
+            
+            if (BspRenderer.BspFile != null)
                 BspRenderer.LoadIndexBuffer();
         }
 
         public override void Render()
         {
+            
             foreach (IRender r in _entities)
             {
                 switch (r.Render.RenderType)
                 {
                     case RenderType.Bsp:
-                        GameRenderer.RenderWorld(r as World);
+                        GameRenderer.RenderWorld(r as GameWorld);
                         break;
                     case RenderType.Model:
                         break;
@@ -37,16 +42,18 @@ namespace Glitchey.Systems
                 }
             }
 
-            //GameRenderer.ApplyLights();
         }
 
+        
         public override void UpdateEntityList()
         {
             _entities = new List<Entities.Entity>();
             foreach (Entity e in _entityManager.Entities)
             {
                 if (e is IRender)
+                {
                     _entities.Add(e);
+                }
             }
         }
     }

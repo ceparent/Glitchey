@@ -13,6 +13,7 @@ namespace Glitchey
         {
             if(onExit != null)
                 onExit(null, EventArgs.Empty);
+            
         }
 
         public static event EventHandler<StateChangedEventArgs> onStateChanged;

@@ -330,6 +330,18 @@ namespace Glitchey.Levels
 
     }
 
+    public class BspEntity
+    {
+        public string ClassName { get; set; }
+        public float[] Origin { get; set; }
+
+        public Dictionary<string, string> KeyValues { get; set; }
+
+        public BspEntity()
+        {
+            KeyValues = new Dictionary<string, string>();
+        }
+    }
 
     class BspFile
     {
@@ -463,14 +475,77 @@ namespace Glitchey.Levels
             Header = new header(magic, version, entries);
         }
 
-        public string Entities { get; set; }
+        public List<BspEntity> Entities { get; set; }
         private void ReadEntities()
         {
             //Length of the Lump
             int stringLength = Header.DirEntries[0].Length;
 
             //Read entities
-            Entities = ReadString(stringLength);
+            string entities = ReadString(stringLength);
+
+            string[] entityStrings = entities.Split('\n');
+
+            Entities = new List<BspEntity>();
+
+            BspEntity bspEntity = null;
+            foreach (string entity in entityStrings)
+            {
+                switch (entity)
+                {
+                    case "\0":
+                        continue;
+
+                    case "{":
+                        bspEntity = new BspEntity();
+                        break;
+
+                    case "}":
+                        Entities.Add(bspEntity);
+                        break;
+
+                    default:
+                        string[] keyValue = entity.Trim('\"').Split(new[] { "\" \"" }, 2, 0);
+                        switch (keyValue[0])
+                        {
+                            case "classname":
+                                bspEntity.ClassName = keyValue[1];
+                                break;
+                            case "origin":
+                                string[] originStrings = keyValue[1].Split(' ');
+                                bspEntity.Origin = new float[] { float.Parse(originStrings[0]), float.Parse(originStrings[1]), float.Parse(originStrings[2]) };
+                                break;
+                            default:
+                                if (!bspEntity.KeyValues.ContainsKey(keyValue[0]))
+                                {
+                                    if (keyValue.Length == 1)
+                                    {
+                                        bspEntity.KeyValues.Add(keyValue[0], "");
+                                    }
+                                    else
+                                    {
+                                        bspEntity.KeyValues.Add(keyValue[0], keyValue[1]);
+                                    }
+                                }
+                                break;
+                        }
+                        break;
+                }
+            }
+        }
+
+        public bool FindVectorByName(string name, ref float[] vector)
+        {
+            foreach (BspEntity entity in Entities)
+            {
+                if (entity.ClassName == name)
+                {
+                    vector = entity.Origin;
+                    return true;
+                }
+            }
+
+            return false;
         }
 
         public texture[] Textures { get; set; }

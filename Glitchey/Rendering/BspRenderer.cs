@@ -36,7 +36,7 @@ namespace Glitchey.Rendering
 
         private static void LoadMap()
         {
-            _tesselation = GameOptions.patch_tesselation;
+            _tesselation = (int)GameOptions.GetVariable("r_tesselation");
             CreateBeziersWithTesselation();
             LoadVBuffer();
             LoadIndexBuffer();
@@ -103,7 +103,7 @@ namespace Glitchey.Rendering
                 plane plane = BspFile.Planes[node.Plane];
 
                 //dist
-                double distance = Vector3.Dot(V3FromFloatArray(plane.Normal), Swizzle(CameraSystem._camera.Position.PositionVec)) - plane.Dist;
+                double distance = Vector3.Dot(CameraSystem.Camera.Position.PositionVec, new Vector3( plane.Normal[0],plane.Normal[2],-plane.Normal[1])) - plane.Dist;
 
                 if (distance >= 0)
                     index = node.Children[0];
@@ -113,6 +113,18 @@ namespace Glitchey.Rendering
             }
 
             return -index - 1;
+
+        }
+
+        private static bool isLeafVisible(int cluster, int testCluster)
+        {
+            if (cluster < 0 || BspFile.VisData.Vecs == null)
+                return true;
+
+            int i = (cluster * BspFile.VisData.Sz_vecs) + (testCluster >> 3);
+            uint visSet = BspFile.VisData.Vecs[i];
+
+            return (visSet & (1 << (testCluster & 7))) != 0;
 
         }
 
@@ -135,8 +147,8 @@ namespace Glitchey.Rendering
             List<leaf> visibleLeaves = new List<leaf>();
             foreach (leaf l in BspFile.Leaves)
             {
-                //if(isLeafVisible(clusterIndex,l.Cluster))
-                visibleLeaves.Add(l);
+                if(isLeafVisible(clusterIndex,l.Cluster))
+                    visibleLeaves.Add(l);
             }
 
             //visible faces
@@ -168,7 +180,7 @@ namespace Glitchey.Rendering
 
 
             // Sort by texture
-            visibleFaces = visibleFaces.OrderBy(o => o.Texture).ToList();
+            visibleFaces = visibleFaces.OrderBy(o => o.Lm_index).OrderBy(o => o.Texture).ToList();
 
             List<uint> indiceList = new List<uint>();
             _goodVisibleFaces = new List<face>();
@@ -194,6 +206,7 @@ namespace Glitchey.Rendering
 
 
             Indices = indiceList.ToArray();
+
             GL.GenBuffers(1, out IBuffer);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBuffer);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(Indices.Length * sizeof(int)), Indices, BufferUsageHint.StaticDraw);
@@ -257,6 +270,8 @@ namespace Glitchey.Rendering
 
             }
 
+            // order by texture
+            _beziers = _beziers.OrderBy(o => o.Face.Lm_index).OrderBy(o => o.Face.Texture).ToList();
 
             List<vertex> bspVertices = new List<vertex>();
             // Reset TessalationOffset from last time for TesselateOnePatch()
@@ -366,12 +381,7 @@ namespace Glitchey.Rendering
 
                     //2nd pass
                     vertices[y + x * Length] = p0 * b * b + p1 * 2 * b * a + p2 * a * a;
-                    /*
-                    vertices[y + x * Length].TexCoord = new float[,] 
-                    { 
-                        { p0.TexCoord[0, 0] + (float)a, p0.TexCoord[0, 0] + (float)c },
-                        { p0.TexCoord[1, 1] + (float)a, p0.TexCoord[1, 1] + (float)c }
-                    };*/
+                    
 
                 }
             }
@@ -438,8 +448,8 @@ namespace Glitchey.Rendering
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBuffer);
             
             int cptVertex = 0;
-            int lastTexture = -1;
-            int lastLm = -1;
+            int lastTexture = int.MinValue;
+            int lastLm = int.MinValue;
             foreach (face f in _goodVisibleFaces)
             {
                 string textureName = BspFile.Textures[f.Texture].Name + ".jpg";
@@ -457,7 +467,7 @@ namespace Glitchey.Rendering
                     lastTexture = texture;
                 }
 
-                if (f.Lm_index > 0 && f.Lm_index != lastLm)
+                if (f.Lm_index >= 0 && f.Lm_index != lastLm)
                 {
                     GL.ActiveTexture(TextureUnit.Texture1);
                     GL.BindTexture(TextureTarget.Texture2D, _lightmaps[f.Lm_index]);
@@ -504,7 +514,7 @@ namespace Glitchey.Rendering
                     lastTexture = texture;
                 }
 
-                if (f.Lm_index > 0 && f.Lm_index != lastLm)
+                if (f.Lm_index >= 0 && f.Lm_index != lastLm)
                 {
                     GL.ActiveTexture(TextureUnit.Texture1);
                     GL.BindTexture(TextureTarget.Texture2D, _lightmaps[f.Lm_index]);
@@ -520,12 +530,13 @@ namespace Glitchey.Rendering
 
                 cptVertex += bezier.End - bezier.Start;
             }
-            
-            GL.ActiveTexture(TextureUnit.Texture0);
-            GL.BindTexture(TextureTarget.Texture2D, 0);
+
+
             GL.ActiveTexture(TextureUnit.Texture1);
             GL.BindTexture(TextureTarget.Texture2D, 0);
-
+            GL.ActiveTexture(TextureUnit.Texture0);
+            GL.BindTexture(TextureTarget.Texture2D, 0);
+            
             GL.DisableVertexAttribArray(0);
             GL.DisableVertexAttribArray(1);
             GL.DisableVertexAttribArray(2);
@@ -542,7 +553,7 @@ namespace Glitchey.Rendering
             GL.PopMatrix();
         }
 
-        private static Vector3 V3FromFloatArray(float[] array)
+        public static Vector3 V3FromFloatArray(float[] array)
         {
             if (array.Count() != 3)
                 throw new InvalidOperationException();
