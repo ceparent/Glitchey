@@ -11,6 +11,7 @@ using Glitchey.Rendering;
 
 using OpenTK;
 using BulletSharp;
+using OpenTK.Graphics.OpenGL4;
 
 namespace Glitchey.Systems
 {
@@ -30,34 +31,29 @@ namespace Glitchey.Systems
         {
             InitializePhysics();
             SetUpWorld(1f);
+            UpdateEntityList();
 
-            GameEvents.onExit += GameEvents_onExit;
+            GameOptions.ValueChanged += GameOptions_ValueChanged;
+
+            
+
             World.DebugDrawer = new DebugDrawer();
             World.DebugDrawer.DebugMode = DebugDrawModes.DrawWireframe;
+            isDrawingDebug = GameOptions.GetVariable("phys_debug") == 1;
 
-            foreach (IPhysic phys in _entities)
-            {
-                if (phys.Physic.Shape != null)
-                {
-                    Vector3 position = Vector3.Zero;
-                    IPosition pos = phys as IPosition;
-                    if (pos != null)
-                        position = pos.Position.PositionVec;
-
-                    phys.Physic.RigidBody = LocalCreateRigidBody(phys.Physic.Mass, phys.Physic.Flags, position, phys.Physic.Shape);
-                }
-                    
-            }
 
             
         }
 
-        void GameEvents_onExit(object sender, EventArgs e)
+        void GameOptions_ValueChanged(object sender, OptionsChangedArgs e)
         {
-            World.Dispose();
+            switch (e.Variable)
+            {
+                case "phys_debug":
+                    isDrawingDebug = e.Value == 1;
+                    break;
+            }
         }
-
-
 
         DateTime lastStep = DateTime.Now;
         public override void Update()
@@ -82,9 +78,10 @@ namespace Glitchey.Systems
 
         DateTime lastDebugDrawUpdate = DateTime.MinValue;
         Vector3[] debugVertices;
-        bool isDrawingDebug = false;
+        bool isDrawingDebug;
         public override void Render()
         {
+
             if (!isDrawingDebug)
                 return;
 
@@ -97,27 +94,32 @@ namespace Glitchey.Systems
                 lastDebugDrawUpdate = DateTime.Now;
             }
 
-            GameRenderer.RenderDebugLines(debugVertices); 
+
+            GameRenderer.RenderDebugLines(debugVertices);
+
 
         }
 
+        private HashSet<RigidBody> _bodies = new HashSet<RigidBody>();
         public override void UpdateEntityList()
         {
             _entities = new List<Entity>();
             foreach (Entity e in _entityManager.Entities)
             {
-                
-                if (e is IPhysic)
+                IPhysic phys = e as IPhysic;
+                if (phys != null)
                 {
                     _entities.Add(e);
-
+                    if (World != null && !_bodies.Contains(phys.Physic.RigidBody))
+                    {
+                        World.AddRigidBody(phys.Physic.RigidBody);
+                        _bodies.Add(phys.Physic.RigidBody);
+                    }
+                        
                     if (e is GameWorld)
                         _gameWorld = (GameWorld)e;
                 }
-                    
             }
-
-            
         }
 
         private void InitializePhysics()
@@ -132,7 +134,9 @@ namespace Glitchey.Systems
             CollisionShapes = new AlignedCollisionShapeArray();
 
             World = new DiscreteDynamicsWorld(Dispatcher, Broadphase, Solver, CollisionConf);
-            World.Gravity = new Vector3(0, -1500.0f, 0);
+
+            int grav = GameOptions.GetVariable("sv_gravity");
+            World.Gravity = new Vector3(0, -grav, 0);
         }
 
         private void SetUpWorld(float scaling)
@@ -141,8 +145,11 @@ namespace Glitchey.Systems
             if (_gameWorld == null)
                 return;
 
-            
+            AddBsp(scaling);
+        }
 
+        private void AddBsp(float scaling)
+        {
             BspFile bsp = _gameWorld.Level.BspFile;
 
             foreach (leaf leaf in bsp.Leaves)
@@ -172,7 +179,7 @@ namespace Glitchey.Systems
                                 int planeId = brushSide.Plane;
                                 plane plane = bsp.Planes[planeId];
 
-                                Vector4 planeEq = new Vector4(plane.Normal[0], plane.Normal[2], -plane.Normal[1] ,scaling * -plane.Dist);
+                                Vector4 planeEq = new Vector4(plane.Normal[0], plane.Normal[2], -plane.Normal[1], scaling * -plane.Dist);
                                 planeEquations.Add(planeEq);
                                 isValidBrush = true;
                             }
@@ -182,10 +189,11 @@ namespace Glitchey.Systems
                                 AlignedVector3Array vertices;
                                 GeometryUtil.GetVerticesFromPlaneEquations(planeEquations, out vertices);
 
+
                                 const bool isEntity = false;
                                 Vector3 entityTarget = Vector3.Zero;
 
-                                AddConvexVerticesCollider(vertices, isEntity,CollisionFlags.StaticObject , entityTarget);
+                                AddConvexVerticesCollider(vertices, isEntity, CollisionFlags.StaticObject, entityTarget);
 
                             }
                         }
@@ -198,8 +206,9 @@ namespace Glitchey.Systems
             }
         }
 
-        public AlignedCollisionShapeArray CollisionShapes { get; private set; }
-        private void AddConvexVerticesCollider(AlignedVector3Array vertices, bool isEntity, CollisionFlags flags, Vector3 entityTargLocation)
+
+        public static AlignedCollisionShapeArray CollisionShapes { get; private set; }
+        private  void AddConvexVerticesCollider(AlignedVector3Array vertices, bool isEntity, CollisionFlags flags, Vector3 entityTargLocation)
         {
             if (vertices.Count == 0)
                 return;
@@ -209,11 +218,11 @@ namespace Glitchey.Systems
             CollisionShape shape = new ConvexHullShape(vertices);
             CollisionShapes.Add(shape);
 
-            LocalCreateRigidBody(mass, flags, entityTargLocation, shape);
-
+            var body = LocalCreateRigidBody(mass, flags, entityTargLocation, shape);
+            World.AddRigidBody(body);
         }
 
-        private RigidBody LocalCreateRigidBody(float mass, CollisionFlags flags, Vector3 startPos,  CollisionShape shape)
+        public static RigidBody LocalCreateRigidBody(float mass, CollisionFlags flags, Vector3 startPos,  CollisionShape shape)
         {
             bool isDynamic = (mass != 0.0f);
 
@@ -234,10 +243,17 @@ namespace Glitchey.Systems
             body.Translate(startPos);
             
             rbInfo.Dispose();
-            World.AddRigidBody(body);
-
+            
             return body;
         }
 
+
+        public override void Dispose()
+        {
+            World.Dispose();
+            World = null;
+            CollisionShapes.Dispose();
+            CollisionShapes = null;
+        }
     }
 }

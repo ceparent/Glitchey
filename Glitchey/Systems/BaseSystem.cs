@@ -9,7 +9,7 @@ using Glitchey.Entities;
 
 namespace Glitchey.Systems
 {
-    abstract class BaseSystem : IComparable<BaseSystem>
+    abstract class BaseSystem : IComparable<BaseSystem>, IDisposable
     {
         protected static EntityManager _entityManager;
         public static void LoadManager(EntityManager em)
@@ -72,5 +72,8 @@ namespace Glitchey.Systems
         }
         protected List<Entity> _entities;
         public abstract void UpdateEntityList();
+
+        public abstract void Dispose();
+
     }
 }

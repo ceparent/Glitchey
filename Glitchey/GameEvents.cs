@@ -8,14 +8,14 @@ namespace Glitchey
 {
     static class GameEvents
     {
-        public static event EventHandler onExit;
+        public static event EventHandler onExit; 
         public static void Exit()
         {
-            if(onExit != null)
+            if (onExit != null)
                 onExit(null, EventArgs.Empty);
-            
         }
 
+        
         public static event EventHandler<StateChangedEventArgs> onStateChanged;
         public static void ChangeScreenState(ScreenState state)
         {

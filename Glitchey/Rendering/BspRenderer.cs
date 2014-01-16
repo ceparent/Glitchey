@@ -13,14 +13,37 @@ using Glitchey.Levels;
 using Glitchey.Systems;
 using Glitchey.Rendering.Shaders;
 
+using BulletSharp;
+
 namespace Glitchey.Rendering
 {
     static class BspRenderer
     {
-        private static BspShader _shader;
+        private static LightmapShader _shader;
         static BspRenderer()
         {
-            _shader = new BspShader();
+            _shader = new LightmapShader();
+            GameOptions.ValueChanged += GameOptions_ValueChanged;
+        }
+
+        public static void DisposeData()
+        {
+            BspFile.Dispose();
+            BspFile = null;
+            _lightmaps = null;
+            _goodVisibleFaces = null;
+            _lastCluster = int.MinValue;
+            _beziers = null;
+        }
+
+        static void GameOptions_ValueChanged(object sender, OptionsChangedArgs e)
+        {
+            if (BspFile == null)
+                return;
+
+            if (e.Variable == "r_tesselation")
+                Tesselation = e.Value;
+
         }
 
         private static BspFile _bspFile;
@@ -30,16 +53,15 @@ namespace Glitchey.Rendering
             set 
             {
                 _bspFile = value;
-                LoadMap();
+                if(value != null)
+                    LoadMap();
             }
         }
 
         private static void LoadMap()
         {
-            _tesselation = (int)GameOptions.GetVariable("r_tesselation");
-            CreateBeziersWithTesselation();
+            Tesselation = (int)GameOptions.GetVariable("r_tesselation");
             LoadVBuffer();
-            LoadIndexBuffer();
             GenerateLightmapTextures();
         }
 
@@ -81,6 +103,7 @@ namespace Glitchey.Rendering
                 cpt++;
             }
 
+
             GL.GenBuffers(1, out Vbuffer);
             GL.BindBuffer(BufferTarget.ArrayBuffer, Vbuffer);
             GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(vertices.Length * Vertex.Stride), vertices, BufferUsageHint.StaticDraw);
@@ -118,7 +141,7 @@ namespace Glitchey.Rendering
 
         private static bool isLeafVisible(int cluster, int testCluster)
         {
-            if (cluster < 0 || BspFile.VisData.Vecs == null)
+            if (cluster < 0 || testCluster < 0 || BspFile.VisData.Vecs == null)
                 return true;
 
             int i = (cluster * BspFile.VisData.Sz_vecs) + (testCluster >> 3);
@@ -177,6 +200,7 @@ namespace Glitchey.Rendering
                 face f = BspFile.Faces[l.Face];
                 visibleFaces.Add(f);
             }
+
 
 
             // Sort by texture
@@ -290,7 +314,8 @@ namespace Glitchey.Rendering
                 Bezier.End = indexBezier;
             }
 
-
+            
+           
 
             List<Vertex> verticesList = new List<Vertex>();
             int cpt2 = 0;
@@ -303,8 +328,10 @@ namespace Glitchey.Rendering
                 cpt2++;
             }
 
+            
 
             Vertex[] vertices = verticesList.ToArray();
+            GL.DeleteBuffer(BeziersVertices);
             GL.GenBuffers(1, out BeziersVertices);
             GL.BindBuffer(BufferTarget.ArrayBuffer, BeziersVertices);
             GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(vertices.Length * Vertex.Stride), vertices, BufferUsageHint.StaticDraw);
@@ -318,6 +345,7 @@ namespace Glitchey.Rendering
                 cpt4++;
             }
 
+            GL.DeleteBuffer(BeziersIndex);
             GL.GenBuffers(1, out BeziersIndex);
             GL.BindBuffer(BufferTarget.ElementArrayBuffer, BeziersIndex);
             GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(BezierIndices.Length * sizeof(uint)), BezierIndices, BufferUsageHint.StaticDraw);
@@ -334,8 +362,8 @@ namespace Glitchey.Rendering
                 _tesselation = value;
                 if (_tesselation < 1)
                     _tesselation = 1;
-                if (_tesselation > 10)
-                    _tesselation = 10;
+                if (_tesselation > 15)
+                    _tesselation = 15;
 
                 CreateBeziersWithTesselation();
             }
@@ -422,6 +450,9 @@ namespace Glitchey.Rendering
 
         public static void Draw()
         {
+            if (_goodVisibleFaces == null)
+                return;
+
             GL.PushMatrix();
             
             GL.UseProgram(_shader.shaderProgramHandle);

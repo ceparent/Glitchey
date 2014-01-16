@@ -90,6 +90,14 @@
     <Reference Include="BulletSharp">
       <HintPath>..\..\..\..\..\Resources\libs\bulletSharp\Release OpenTK\BulletSharp.dll</HintPath>
     </Reference>
+    <Reference Include="Gwen, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\Resources\libs\GwenCS\Gwen\bin\Debug\Gwen.dll</HintPath>
+    </Reference>
+    <Reference Include="Gwen.Renderer.OpenTK, Version=1.0.0.0, Culture=neutral, processorArchitecture=x86">
+      <SpecificVersion>False</SpecificVersion>
+      <HintPath>..\..\..\..\..\Resources\libs\GwenCS\Gwen.Renderer.OpenTK\bin\Debug\Gwen.Renderer.OpenTK.dll</HintPath>
+    </Reference>
     <Reference Include="OpenTK">
       <HintPath>..\..\..\..\..\Resources\libs\opentk\Binaries\OpenTK\Release\OpenTK.dll</HintPath>
     </Reference>
@@ -113,17 +121,18 @@
     <Compile Include="Components\BaseComponent.cs" />
     <Compile Include="Components\HeadOffset.cs" />
     <Compile Include="Components\Level.cs" />
-    <Compile Include="Components\Move.cs" />
     <Compile Include="Components\Physic.cs" />
     <Compile Include="Components\Position.cs" />
     <Compile Include="Components\Render.cs" />
     <Compile Include="Components\Rotation.cs" />
     <Compile Include="Content.cs" />
-    <Compile Include="Entities\Camera.cs" />
+    <Compile Include="Entities\Player.cs" />
     <Compile Include="Entities\Entity.cs" />
     <Compile Include="Core\EntityManager.cs" />
     <Compile Include="Core\SystemManager.cs" />
     <Compile Include="Entities\GameWorld.cs" />
+    <Compile Include="Entities\Sphere.cs" />
+    <Compile Include="GameActions.cs" />
     <Compile Include="GameConsole.cs" />
     <Compile Include="GameEvents.cs" />
     <Compile Include="GameOptions.cs" />
@@ -131,15 +140,20 @@
     <Compile Include="Levels\BspFile.cs" />
     <Compile Include="Main.cs" />
     <Compile Include="Menu\BaseMenu.cs" />
-    <Compile Include="Menu\Controls\Control.cs" />
-    <Compile Include="Menu\Controls\TextLink.cs" />
+    <Compile Include="Menu\Controls\CommandTextbox.cs" />
+    <Compile Include="Menu\Controls\ConsoleTextbox.cs" />
+    <Compile Include="Menu\Controls\ConsoleWindow.cs" />
+    <Compile Include="Menu\Controls\NewGameWindow.cs" />
+    <Compile Include="Menu\Controls\OptionWindow.cs" />
     <Compile Include="Menu\MainMenu.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Rendering\BezierInfos.cs" />
     <Compile Include="Rendering\BspRenderer.cs" />
     <Compile Include="Rendering\DebugDrawer.cs" />
-    <Compile Include="Rendering\Shaders\BspShader.cs" />
+    <Compile Include="Rendering\Shaders\BaseShader.cs" />
+    <Compile Include="Rendering\Shaders\LightmapShader.cs" />
+    <Compile Include="Rendering\Shaders\TextureShader.cs" />
     <Compile Include="Rendering\Vertex.cs" />
     <Compile Include="Rendering\GameRenderer.cs" />
     <Compile Include="Rendering\DrawHelper.cs" />

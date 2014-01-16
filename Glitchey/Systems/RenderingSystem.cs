@@ -8,6 +8,8 @@ using Glitchey.Entities;
 using Glitchey.Components;
 using Glitchey.Rendering;
 
+using OpenTK.Graphics.OpenGL;
+
 namespace Glitchey.Systems
 {
     class RenderingSystem : BaseSystem
@@ -25,13 +27,20 @@ namespace Glitchey.Systems
 
         public override void Render()
         {
-            
+            if (GL.GetError() != ErrorCode.NoError)
+                throw new Exception();
+
             foreach (IRender r in _entities)
             {
                 switch (r.Render.RenderType)
                 {
                     case RenderType.Bsp:
+                        
                         GameRenderer.RenderWorld(r as GameWorld);
+
+                        break;
+                    case RenderType.Mesh:
+                        GameRenderer.RenderMesh(r);
                         break;
                     case RenderType.Model:
                         break;
@@ -41,6 +50,9 @@ namespace Glitchey.Systems
                         break;
                 }
             }
+
+            if (GL.GetError() != ErrorCode.NoError)
+                throw new Exception();
 
         }
 
@@ -55,6 +67,11 @@ namespace Glitchey.Systems
                     _entities.Add(e);
                 }
             }
+        }
+
+        public override void Dispose()
+        {
+            BspRenderer.DisposeData();
         }
     }
 }

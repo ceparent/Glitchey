@@ -13,20 +13,21 @@ using Glitchey.Rendering;
 
 namespace Glitchey.Screens
 {
-    class MenuScreen: BaseScreen
+    class MenuScreen: BaseScreen, IDisposable
     {
 
-
-        public MenuScreen(MouseDevice md)
+        Main _main;
+        public MenuScreen(Main main)
         {
-            Mouse = md;
+            _main = main;
+
             Load();
-            GameRenderer.SetupViewportMenu();
+            GameRenderer.SetupViewportMenu(_main);
         }
 
         public override void Load()
         {
-            _menu = new MainMenu();
+            _menu = new MainMenu(_main);
             oldKs = Keyboard.GetState();
             GameEvents.onStateChanged += GameEvents_onStateChanged;
         }
@@ -36,14 +37,18 @@ namespace Glitchey.Screens
             if (e.State == ScreenState.Menu)
             {
                 oldKs = Keyboard.GetState();
-                GameRenderer.SetupViewportMenu();
+                GameRenderer.SetupViewportMenu(_main);
+                _menu.Enable();
+            }
+            else
+            {
+                _menu.Disable();
             }
         }
 
 
 
         BaseMenu _menu;
-        MouseDevice Mouse;
         MouseState oldMs;
         KeyboardState oldKs;
         public override void Update()
@@ -51,12 +56,11 @@ namespace Glitchey.Screens
             KeyboardState ks = Keyboard.GetState();
             MouseState ms = OpenTK.Input.Mouse.GetState();
 
-            //Click
-            _menu.Click(ms.LeftButton == ButtonState.Pressed && oldMs.LeftButton == ButtonState.Released,Mouse.X, Mouse.Y);
+            _menu.ShowBackground = !_main.IsGameStarted;
             
             //Escape
-            if (ks.IsKeyDown(Key.Escape) && oldKs.IsKeyUp(Key.Escape))
-                GameEvents.ChangeScreenState(ScreenState.Game);
+            if (_main.IsGameStarted && ks.IsKeyDown(Key.Escape) && oldKs.IsKeyUp(Key.Escape))
+                GameActions.ChangeScreenState(ScreenState.Game);
 
             oldKs = ks;
             oldMs = ms;
@@ -68,5 +72,10 @@ namespace Glitchey.Screens
         }
 
 
+
+        public void Dispose()
+        {
+            _menu.Dispose();
+        }
     }
 }

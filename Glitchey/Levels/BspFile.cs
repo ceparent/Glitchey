@@ -343,7 +343,7 @@ namespace Glitchey.Levels
         }
     }
 
-    class BspFile
+    class BspFile : IDisposable
     {
 
         BinaryReader reader;
@@ -513,7 +513,8 @@ namespace Glitchey.Levels
                                 break;
                             case "origin":
                                 string[] originStrings = keyValue[1].Split(' ');
-                                bspEntity.Origin = new float[] { float.Parse(originStrings[0]), float.Parse(originStrings[1]), float.Parse(originStrings[2]) };
+                                var ns = System.Globalization.CultureInfo.InvariantCulture;
+                                bspEntity.Origin = new float[] { float.Parse(originStrings[0], ns), float.Parse(originStrings[1], ns), float.Parse(originStrings[2], ns) };
                                 break;
                             default:
                                 if (!bspEntity.KeyValues.ContainsKey(keyValue[0]))
@@ -561,7 +562,7 @@ namespace Glitchey.Levels
             for (int i = 0; i < nbTExtures; i++)
             {
                 //Name
-                string name = ReadString(64);
+                string name = ReadString(64).Split(' ')[0];
 
                 //flags
                 int flags = ReadInt();
@@ -1000,5 +1001,25 @@ namespace Glitchey.Levels
 
         }
 
+
+        public void Dispose()
+        {
+            Entities = null;
+            Textures = null;
+            Planes = null;
+            Nodes = null;
+            Leaves = null;
+            LeafFaces = null;
+            LeafBrushes = null;
+            Models = null;
+            Brushes = null;
+            BrusheSides = null;
+            Vertices = null;
+            MeshVerts = null;
+            Effects = null;
+            Faces = null;
+            Lightmaps = null;
+            LightVols = null;
+        }
     } 
 }

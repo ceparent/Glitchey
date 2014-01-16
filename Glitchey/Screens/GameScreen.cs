@@ -16,11 +16,12 @@ using OpenTK.Graphics.OpenGL;
 
 namespace Glitchey.Screens
 {
-    class GameScreen : BaseScreen
+    class GameScreen : BaseScreen, IDisposable
     {
-
-        public GameScreen()
+        private string _mapname;
+        public GameScreen(string map)
         {
+            _mapname = map;
             Load();
             GameEvents.onStateChanged += GameEvents_onStateChanged;
             GameRenderer.SetupViewportGame();
@@ -36,10 +37,8 @@ namespace Glitchey.Screens
         SystemManager _systemManager;
         public override void Load()
         {
-
             LoadLevel();
             LoadSystems();
-
         }
 
         Player _camera;
@@ -48,7 +47,7 @@ namespace Glitchey.Screens
             _entityManager = new EntityManager();
             _systemManager = new SystemManager(_entityManager);
 
-            GameWorld world = new GameWorld("levels/q3dm8.bsp");
+            GameWorld world = new GameWorld("levels/" + _mapname + ".bsp");
             _entityManager.AddEntity(world);
 
             float[] vec = new float[3];
@@ -58,6 +57,7 @@ namespace Glitchey.Screens
 
             Player cam = _camera = new Player(vector);
             _entityManager.AddEntity(cam);
+
         }
 
         private void LoadSystems()
@@ -72,6 +72,7 @@ namespace Glitchey.Screens
             _systemManager.AddSystem(new CameraSystem());
             _systemManager.AddSystem(new RenderingSystem());
 
+            
             
         }
 
@@ -102,13 +103,21 @@ namespace Glitchey.Screens
             int cpt = 0;
             DrawHelper.DrawString("Position : " + _camera.Position.PositionVec.ToString(), font, Color.Yellow, new Vector2(0, cpt++ * offset), false);
             DrawHelper.DrawString("Rotation : " + _camera.Rotation.RotationVector.ToString(), font, Color.Yellow, new Vector2(0, cpt++ * offset), false);
-            DrawHelper.DrawString("FPS : " + GameVariables.fps.ToString(), font, Color.Yellow, new Vector2(0, cpt++ * offset), false);
+            DrawHelper.DrawString("FPS : " + GameVariables.fps.ToString("n0"), font, Color.Yellow, new Vector2(0, cpt++ * offset), false);
 
             GL.CullFace(CullFaceMode.Front);
             GL.DepthMask(true);
 
+            if (GL.GetError() != ErrorCode.NoError)
+                throw new Exception();
+
         }
 
 
+
+        public void Dispose()
+        {
+            _systemManager.Dispose();
+        }
     }
 }

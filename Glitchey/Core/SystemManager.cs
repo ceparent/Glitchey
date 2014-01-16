@@ -5,10 +5,11 @@ using System.Text;
 using System.Threading.Tasks;
 
 using Glitchey.Systems;
+using OpenTK.Graphics.OpenGL4;
 
 namespace Glitchey.Core
 {
-    class SystemManager
+    class SystemManager : IDisposable
     {
         private List<BaseSystem> _systems;
         public SystemManager(EntityManager em)
@@ -32,22 +33,36 @@ namespace Glitchey.Core
 
         public void Update()
         {
+
             foreach (BaseSystem system in _systems)
             {
                 if(system.Enabled)
                     system.Update();
+
             }
         }
 
         public void Render()
         {
+
             foreach (BaseSystem system in _systems)
             {
                 if (system.Enabled)
                     system.Render();
+
+                if (GL.GetError() != ErrorCode.NoError)
+                    throw new Exception();
             }
         }
 
 
+
+        public void Dispose()
+        {
+            foreach (BaseSystem sys in _systems)
+            {
+                sys.Dispose();
+            }
+        }
     }
 }

@@ -8,10 +8,31 @@ using OpenTK.Graphics.OpenGL;
 using System.Drawing;
 
 using QuickFont;
+using OpenTK.Graphics;
+
+
 namespace Glitchey.Rendering
 {
     static class DrawHelper
     {
+        public static Bitmap GrabScreenshot(int width, int height)
+        {
+            if (GraphicsContext.CurrentContext == null)
+                throw new GraphicsContextMissingException();
+
+            Rectangle clientRectangle = new Rectangle(0, 0, width, height);
+
+            Bitmap bmp = new Bitmap(width, height);
+            System.Drawing.Imaging.BitmapData data =
+                bmp.LockBits(clientRectangle, System.Drawing.Imaging.ImageLockMode.WriteOnly, System.Drawing.Imaging.PixelFormat.Format24bppRgb);
+            GL.ReadPixels(0, 0, width, height, PixelFormat.Bgr, PixelType.UnsignedByte, data.Scan0);
+            bmp.UnlockBits(data);
+
+            bmp.RotateFlip(RotateFlipType.RotateNoneFlipY);
+            return bmp;
+        }
+
+
         public static void DrawRectangle(Vector2 origin, Vector2 size, Color color, bool filled, bool alpha = false)
         {
             Rectangle rec = new Rectangle((int)(origin.X - size.X / 2),(int)( origin.Y - size.Y / 2),(int) size.X,(int) size.Y);
@@ -21,6 +42,7 @@ namespace Glitchey.Rendering
 
         public static void DrawRectangle(Rectangle rectangle, Color color, bool filled, bool alpha = false)
         {
+            GL.Enable(EnableCap.Blend);
             if (alpha)
                 GL.Color4(color);
             else
@@ -44,6 +66,7 @@ namespace Glitchey.Rendering
             GL.Vertex2(rectangle.Right, rectangle.Top);
 
             GL.End();
+            GL.Disable(EnableCap.Blend);
         }
 
         public static void DrawCircle(float radius, Vector2 position, Color color, bool filled)
@@ -211,6 +234,124 @@ namespace Glitchey.Rendering
             GL.End();
 
 
+        }
+
+        public static int CreateVBuffer(Vertex[] vertices)
+        {
+            int buffer;
+            GL.GenBuffers(1, out buffer);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, buffer);
+            GL.BufferData(BufferTarget.ArrayBuffer, (IntPtr)(vertices.Length * Vertex.Stride), vertices, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            return buffer;
+        }
+
+        public static int CreateIBuffer(uint[] Indices)
+        {
+            int IBuffer;
+            GL.GenBuffers(1, out IBuffer);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBuffer);
+            GL.BufferData(BufferTarget.ElementArrayBuffer, (IntPtr)(Indices.Length * sizeof(int)), Indices, BufferUsageHint.StaticDraw);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+            return IBuffer;
+        }
+
+        public static Vertex[] CalculateSphereVertices(float radius, float height, byte segments, byte rings)
+        {
+            var data = new Vertex[segments * rings];
+
+            int i = 0;
+
+            for (double y = 0; y < rings; y++)
+            {
+                double phi = (y / (rings - 1)) * Math.PI ;
+                for (double x = 0; x < segments; x++)
+                {
+                    double theta = (x / (segments - 1)) * 2 * Math.PI;
+
+                    Vector3 v = new Vector3()
+                    {
+                        X = (float)(radius * Math.Sin(phi) * Math.Cos(theta)),
+                        Y = (float)(height * Math.Cos(phi)),
+                        Z = (float)(radius * Math.Sin(phi) * Math.Sin(theta)),
+                    };
+                    Vector3 n = Vector3.Normalize(v);
+                    Vector2 uv = new Vector2()
+                    {
+                        X = (float)(x / (segments - 1)),
+                        Y = (float)(y / (rings - 1))
+                    };
+                    data[i] = new Vertex() { Position = v, Normal = n, TextCoord = uv };
+                    i++;
+                }
+
+            }
+
+            return data;
+        }
+
+        public static uint[] CalculateSphereElements(float radius, float height, byte segments, byte rings)
+        {
+            var num_vertices = segments * rings;
+            var data = new uint[num_vertices * 6];
+
+            ushort i = 0;
+
+            for (byte y = 0; y < rings - 1; y++)
+            {
+                for (byte x = 0; x < segments - 1; x++)
+                {
+                    data[i++] = (ushort)((y + 0) * segments + x);
+                    data[i++] = (ushort)((y + 1) * segments + x);
+                    data[i++] = (ushort)((y + 1) * segments + x + 1);
+
+                    data[i++] = (ushort)((y + 1) * segments + x + 1);
+                    data[i++] = (ushort)((y + 0) * segments + x + 1);
+                    data[i++] = (ushort)((y + 0) * segments + x);
+                }
+            }
+
+            // Verify that we don't access any vertices out of bounds:
+            foreach (int index in data)
+                if (index >= segments * rings)
+                    throw new IndexOutOfRangeException();
+
+            return data;
+        }
+
+
+        public static void DrawMesh( int VBuffer, int IBuffer, int IndexCount)
+        {
+            GL.PushMatrix();
+
+            GL.Color3(1.0f, 1.0f, 1.0f);
+            GL.EnableClientState(ArrayCap.VertexArray);
+
+            GL.EnableVertexAttribArray(0);
+            GL.EnableVertexAttribArray(1);
+            GL.EnableVertexAttribArray(2);
+            
+            GL.BindBuffer(BufferTarget.ArrayBuffer, VBuffer);
+            
+            GL.VertexAttribPointer(0, 3, VertexAttribPointerType.Float, false, Vertex.Stride, 0);
+            GL.VertexAttribPointer(1, 3, VertexAttribPointerType.Float, false, Vertex.Stride, 3 * sizeof(float));
+            GL.VertexAttribPointer(2, 2, VertexAttribPointerType.Float, false, Vertex.Stride, 6 * sizeof(float));
+            
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, IBuffer);
+            GL.DrawElements(PrimitiveType.Triangles,IndexCount, DrawElementsType.UnsignedInt, 0);
+
+
+            GL.BindBuffer(BufferTarget.ArrayBuffer, 0);
+            GL.BindBuffer(BufferTarget.ElementArrayBuffer, 0);
+
+            GL.DisableVertexAttribArray(0);
+            GL.DisableVertexAttribArray(1);
+            GL.DisableVertexAttribArray(2);
+
+            GL.DisableClientState(ArrayCap.VertexArray);
+
+            GL.UseProgram(0);
+            GL.PopMatrix();
         }
 
     }

@@ -21,7 +21,7 @@ namespace Glitchey.Systems
         {
             GL.Viewport(0, 0, GameOptions.GetVariable("w_width"), GameOptions.GetVariable("w_height"));
 
-            float aspectRatio = GameOptions.GetVariable("vp_width") / (float)GameOptions.GetVariable("vp_height");
+            float aspectRatio = GameOptions.GetVariable("w_width") / (float)GameOptions.GetVariable("w_height");
 
             float fov = MathHelper.PiOver3;
 
@@ -64,17 +64,17 @@ namespace Glitchey.Systems
             Camera.Physic.RigidBody.Translate(pSpeed * rotatedVector);
         }
 
-        public Vector3 Target
+        public static Vector3 Target
         {
             get { return new Vector3(0, 0, -1); }
         }
 
-        public Vector3 UpVector
+        public static Vector3 UpVector
         {
             get { return new Vector3(0, 1, 0); }
         }
 
-        public Vector3 RotatedTarget
+        public static Vector3 RotatedTarget
         {
             get
             {
@@ -101,6 +101,11 @@ namespace Glitchey.Systems
                 if(cam != null)
                     _cameras.Add(cam);
             }
+        }
+
+        public override void Dispose()
+        {
+            _cameras = null;
         }
     }
 }
